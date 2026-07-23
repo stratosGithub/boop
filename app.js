@@ -1,7 +1,7 @@
 /* Interactive dot book engine. */
 
 // Bump this on every change so you can confirm the iPad loaded the latest deploy.
-const VERSION = 'v1.0';
+const VERSION = 'v1.1';
 
 // ---- Tunable detection thresholds (adjust on-device if needed) ----
 // Detection thresholds — tunable live via the ⚙ Tune panel, persisted to localStorage.
@@ -299,6 +299,10 @@ function render(i) {
   // "Enable Motion" button on tilt/shake/upright pages when not yet permitted
   const needsMotion = p.action && ['tiltLeft', 'tiltRight', 'upright', 'shake'].includes(p.action.type);
   enableBtn.hidden = !(needsMotion && !motion.granted);
+
+  // Number pad for the counting quizzes
+  if (p.action && p.action.type === 'countQuiz') showNumpad(p.action.max || 5);
+  else numpad.hidden = true;
 }
 
 function isSensorAction(a) {
@@ -366,6 +370,13 @@ function attachTouchHandlers(p) {
     });
   } else if (a.type === 'rub') {
     setupRub(p);
+  } else if (a.type === 'hold') {
+    setupHold(p);
+  } else if (a.type === 'countQuiz') {
+    // shapes just give a friendly bounce; the answer is chosen on the number pad
+    dotEls.forEach((el) => {
+      el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); popDot(el); });
+    });
   }
 }
 
@@ -376,18 +387,20 @@ function onDotTap(el) {
   if (!armed) return;
 
   if (a.type === 'tapDot') {
-    if (a.target != null && Number(el.dataset.index) !== a.target) return;
+    if (a.target != null && Number(el.dataset.index) !== a.target) { wobbleDot(el); return; }
     popDot(el);
     advance();
   } else if (a.type === 'tapWhite') {
-    if (color === 'w') { popDot(el); advance(); }
+    if (color === 'w') { popDot(el); advance(); } else { wobbleDot(el); }
   } else if (a.type === 'tapCount') {
-    if (color !== a.color) return;
+    if (a.target != null) { if (Number(el.dataset.index) !== a.target) return; }
+    else if (a.color && color !== a.color) return;
     popDot(el);
     tapProgress++;
+    spawnCopy(el);              // a friend pops out on each tap
     if (tapProgress >= a.count) advance();
   } else if (a.type === 'tapAll') {
-    if (a.color && color !== a.color) return;
+    if (a.color && color !== a.color) { wobbleDot(el); return; }
     const key = el.dataset.index;
     if (tappedSet.has(key)) return;
     tappedSet.add(key);
@@ -403,6 +416,48 @@ function popDot(el) {
   // force reflow to restart animation
   void el.offsetWidth;
   el.classList.add('tapped');
+}
+
+// "not that one" wiggle for wrong taps in the find games
+function wobbleDot(el) {
+  el.classList.remove('wobble');
+  void el.offsetWidth;
+  el.classList.add('wobble');
+}
+
+// a copy of the tapped shape pops out at a random spot (for the counting games)
+function spawnCopy(src) {
+  const el = document.createElement('div');
+  el.className = src.className.replace(/\btapped\b/, '').trim() + ' spawned';
+  el.style.width = src.style.width;
+  el.style.height = src.style.height;
+  el.style.left = (14 + Math.random() * 72) + '%';
+  el.style.top = (16 + Math.random() * 52) + '%';
+  dotsEl.appendChild(el);
+}
+
+// press-and-hold a shape until it grows, then advance
+function setupHold(p) {
+  const target = dotEls[p.action.target || 0];
+  const ms = p.action.ms || 900;
+  target.classList.add('holdtarget');
+  target.style.setProperty('--holdms', ms + 'ms');
+  let timer = null;
+  const start = (ev) => {
+    if (!armed) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    target.classList.add('holding');
+    timer = window.setTimeout(() => { target.classList.remove('holdtarget'); advance(); }, ms);
+  };
+  const cancel = () => {
+    target.classList.remove('holding');
+    if (timer) { clearTimeout(timer); timer = null; }
+  };
+  target.addEventListener('pointerdown', start);
+  target.addEventListener('pointerup', cancel);
+  target.addEventListener('pointercancel', cancel);
+  target.addEventListener('pointerleave', cancel);
 }
 
 function setupRub(p) {
@@ -498,6 +553,40 @@ skipBtn.addEventListener('click', () => { armed = true; advance(); });
 enableBtn.addEventListener('click', async () => {
   await motion.init();          // fresh user gesture -> triggers the iOS prompt
   if (motion.granted) enableBtn.hidden = true;
+});
+
+// ---- Number pad for the counting quizzes ----
+const numpad = document.createElement('div');
+numpad.id = 'numpad';
+numpad.hidden = true;
+document.body.appendChild(numpad);
+
+function showNumpad(max) {
+  numpad.innerHTML = '';
+  for (let n = 1; n <= max; n++) {
+    const b = document.createElement('button');
+    b.className = 'numbtn';
+    b.textContent = n;
+    b.dataset.n = n;
+    numpad.appendChild(b);
+  }
+  numpad.hidden = false;
+}
+
+numpad.addEventListener('click', (ev) => {
+  const n = Number(ev.target.dataset.n);
+  if (!n) return;
+  const a = curAction();
+  if (!armed || !a || a.type !== 'countQuiz') return;
+  if (n === a.answer) {
+    ev.target.classList.add('right');
+    flash();
+    advance();
+  } else {
+    ev.target.classList.remove('wrongbtn');
+    void ev.target.offsetWidth;
+    ev.target.classList.add('wrongbtn');
+  }
 });
 
 menuToggle.addEventListener('click', () => { menuBar.hidden = !menuBar.hidden; });

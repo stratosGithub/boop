@@ -1,8 +1,16 @@
 /* Page data for "Boop!" — an original interactive shape playground.
  * Coordinates are percentages of the stage. r = radius (% of the smaller screen side).
  * Colors: r red, y yellow, b blue, g green, p purple, o orange, k pink, w white.
- * Shapes: circle (default), triangle, square, star.
- * action.type drives the interaction; enter drives the entrance animation.
+ * Shapes: circle (default), triangle, square, star, heart.
+ *
+ * Actions:
+ *   tapDot {target?, restart?}   - tap a shape (target = only this index advances; others wiggle)
+ *   tapCount {target, count}     - tap a shape N times; a copy pops out each tap
+ *   tapAll {color?}              - tap every shape (of a colour) to clear them
+ *   rub {target}                 - rub a shape
+ *   hold {target, ms}            - press and hold a shape until it grows
+ *   countQuiz {answer, max, match} - count the matching shapes, tap the number on the pad
+ *   tiltLeft | tiltRight | shake | upright | blow | clap {count}
  */
 
 function mulberry32(a) {
@@ -15,9 +23,9 @@ function mulberry32(a) {
 }
 
 const COLORS = ['r', 'y', 'b', 'g', 'p', 'o', 'k'];
-const SHAPES = ['circle', 'triangle', 'square', 'star'];
+const SHAPES = ['circle', 'triangle', 'square', 'star', 'heart'];
 
-// scattered mix of colors and shapes
+// scattered mix of colours and shapes (for the shake / tilt / blow / clap scenes)
 function scatter(n, seed, xmin, xmax, ymin, ymax, r) {
   const rnd = mulberry32(seed);
   const out = [];
@@ -33,169 +41,161 @@ function scatter(n, seed, xmin, xmax, ymin, ymax, r) {
   return out;
 }
 
-// a vertical stack of one colour + shape
-function col(x, color, shape, r) {
-  return [13, 31.5, 50, 68.5, 87].map((y) => ({ c: color, shape, x, y, r }));
-}
-
-// a horizontal line, cycling colours + shapes
-function row(n, r, seed) {
-  const rnd = mulberry32(seed || 7);
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    out.push({
-      c: COLORS[i % COLORS.length],
-      shape: SHAPES[Math.floor(rnd() * SHAPES.length)],
-      x: 6 + (88 * i) / (n - 1),
-      y: 50,
-      r,
-    });
-  }
-  return out;
-}
-
-// a gentle arch of shapes
-function arc(n, r, seed) {
-  const rnd = mulberry32(seed || 11);
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    out.push({
-      c: COLORS[i % COLORS.length],
-      shape: SHAPES[Math.floor(rnd() * SHAPES.length)],
-      x: 8 + 84 * t,
-      y: 58 - 34 * Math.sin(Math.PI * t),
-      r,
-    });
-  }
-  return out;
-}
-
-// shapes bunched near the top
-function topRow(n, seed, r) {
-  const rnd = mulberry32(seed);
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    out.push({
-      c: COLORS[i % COLORS.length],
-      shape: SHAPES[Math.floor(rnd() * SHAPES.length)],
-      x: 8 + (84 * i) / (n - 1),
-      y: 8 + rnd() * 10,
-      r,
-    });
-  }
-  return out;
-}
-
 const PAGES = [
   { id: 'cover', kind: 'cover' },
 
-  { id: 'ready', kind: 'intro', text: 'Want to play?',
-    dots: [{ c: 'b', shape: 'circle', x: 50, y: 48, r: 9 }],
+  { id: 'ready', kind: 'intro', text: 'Ready to play?\nTap the star!',
+    dots: [{ c: 'b', shape: 'star', x: 50, y: 47, r: 11 }],
     action: { type: 'tapDot' }, enter: 'pop' },
 
-  { id: 'p1', text: 'Hello, little circle!\nGive it a gentle boop.',
-    dots: [{ c: 'b', shape: 'circle', x: 50, y: 48, r: 9 }],
-    action: { type: 'tapDot' }, enter: 'pop' },
-
-  { id: 'p2', text: 'It woke up a friend!\nBoop the blue circle again.',
-    // the original circle stays centred; the new friend appears on the left
-    dots: [{ c: 'b', shape: 'circle', x: 50, y: 48, r: 9 }, { c: 'o', shape: 'triangle', x: 27, y: 48, r: 9 }],
+  // ---- Find #1 (easy): the blue circle ----
+  { id: 'find1', text: 'Find the blue circle\nand give it a boop!',
+    dots: [
+      { c: 'b', shape: 'circle', x: 32, y: 32, r: 9 },   // 0 = target
+      { c: 'r', shape: 'circle', x: 70, y: 27, r: 9 },
+      { c: 'b', shape: 'triangle', x: 74, y: 62, r: 9 },
+      { c: 'g', shape: 'square', x: 25, y: 63, r: 9 },
+      { c: 'y', shape: 'star', x: 50, y: 47, r: 9 },
+      { c: 'b', shape: 'square', x: 49, y: 72, r: 8 },
+    ],
     action: { type: 'tapDot', target: 0 }, enter: 'pop' },
 
-  { id: 'p3', text: 'Three friends now!\nRub the shape on the left to tickle it.',
-    dots: [{ c: 'o', shape: 'triangle', x: 27, y: 46, r: 8.5 }, { c: 'b', shape: 'circle', x: 50, y: 46, r: 8.5 }, { c: 'g', shape: 'square', x: 73, y: 46, r: 8.5 }],
+  // ---- Count & tap: make 3 ----
+  { id: 'count3', text: 'Tap the purple circle three times —\nwatch three friends pop out!',
+    dots: [{ c: 'p', shape: 'circle', x: 50, y: 44, r: 11 }],
+    action: { type: 'tapCount', target: 0, count: 3 }, enter: 'pop' },
+
+  // ---- Pop all the yellow ----
+  { id: 'popyellow', text: 'Pop ALL the yellow shapes!',
+    dots: [
+      { c: 'y', shape: 'circle', x: 22, y: 30, r: 9 },
+      { c: 'y', shape: 'triangle', x: 78, y: 32, r: 9 },
+      { c: 'y', shape: 'star', x: 50, y: 66, r: 9 },
+      { c: 'r', shape: 'square', x: 30, y: 62, r: 9 },
+      { c: 'b', shape: 'circle', x: 72, y: 64, r: 9 },
+      { c: 'g', shape: 'heart', x: 50, y: 26, r: 9 },
+    ],
+    action: { type: 'tapAll', color: 'y' }, enter: 'grow' },
+
+  // ---- Count quiz #1: how many red? ----
+  { id: 'quizred', text: 'How many RED shapes?\nTap the number.',
+    dots: [
+      { c: 'r', shape: 'circle', x: 24, y: 28, r: 9 },
+      { c: 'r', shape: 'triangle', x: 54, y: 30, r: 9 },
+      { c: 'r', shape: 'star', x: 78, y: 58, r: 9 },
+      { c: 'b', shape: 'square', x: 30, y: 62, r: 9 },
+      { c: 'g', shape: 'circle', x: 72, y: 26, r: 9 },
+      { c: 'y', shape: 'heart', x: 50, y: 66, r: 9 },
+    ],
+    action: { type: 'countQuiz', answer: 3, max: 5, match: { c: 'r' } }, enter: 'pop' },
+
+  // ---- Rub clean ----
+  { id: 'rub', text: 'This one rolled in the mud!\nRub it until it shines.',
+    dots: [{ c: 'o', shape: 'circle', x: 50, y: 44, r: 13 }],
     action: { type: 'rub', target: 0 }, enter: 'pop' },
 
-  { id: 'p4', text: 'It giggled pink!\nNow rub the one on the right.',
-    dots: [{ c: 'k', shape: 'triangle', x: 27, y: 46, r: 8.5 }, { c: 'b', shape: 'circle', x: 50, y: 46, r: 8.5 }, { c: 'g', shape: 'square', x: 73, y: 46, r: 8.5 }],
-    action: { type: 'rub', target: 2 }, enter: 'none' },
+  // ---- Press & hold to grow ----
+  { id: 'hold', text: 'Press and hold the balloon —\npuff it up bigger and BIGGER!',
+    dots: [{ c: 'r', shape: 'circle', x: 50, y: 46, r: 8 }],
+    action: { type: 'hold', target: 0, ms: 900 }, enter: 'pop' },
 
-  { id: 'p5', text: 'Ta-da, a purple star!\nTap the blue circle four times.',
-    dots: [{ c: 'k', shape: 'triangle', x: 27, y: 46, r: 8.5 }, { c: 'b', shape: 'circle', x: 50, y: 46, r: 8.5 }, { c: 'p', shape: 'star', x: 73, y: 46, r: 9 }],
-    action: { type: 'tapCount', color: 'b', count: 4 }, enter: 'none' },
+  // ---- Find #2 (medium): the one blue heart ----
+  { id: 'find2', text: 'So many shapes!\nFind the ONE blue heart.',
+    dots: [
+      { c: 'b', shape: 'heart', x: 50, y: 30, r: 9 },    // 0 = target
+      { c: 'r', shape: 'heart', x: 24, y: 26, r: 9 },
+      { c: 'p', shape: 'heart', x: 76, y: 28, r: 9 },
+      { c: 'y', shape: 'heart', x: 30, y: 62, r: 9 },
+      { c: 'g', shape: 'heart', x: 70, y: 62, r: 9 },
+      { c: 'b', shape: 'circle', x: 50, y: 64, r: 9 },
+      { c: 'b', shape: 'triangle', x: 15, y: 46, r: 9 },
+      { c: 'b', shape: 'square', x: 85, y: 48, r: 9 },
+    ],
+    action: { type: 'tapDot', target: 0 }, enter: 'pop' },
 
-  { id: 'p6', text: 'They multiply when tapped!\nNow four taps on the pink triangle.',
-    dots: [{ c: 'k', shape: 'triangle', x: 24, y: 50, r: 7.5 }, ...col(50, 'b', 'circle', 7.5), { c: 'p', shape: 'star', x: 76, y: 50, r: 8 }],
-    action: { type: 'tapCount', color: 'k', count: 4 }, enter: 'grow' },
+  // ---- Count quiz #2: how many blue hearts? ----
+  { id: 'quizhearts', text: 'How many BLUE hearts?\nTap the number.',
+    dots: [
+      { c: 'b', shape: 'heart', x: 26, y: 28, r: 9 },
+      { c: 'b', shape: 'heart', x: 72, y: 60, r: 9 },
+      { c: 'r', shape: 'heart', x: 50, y: 24, r: 9 },
+      { c: 'g', shape: 'heart', x: 78, y: 30, r: 9 },
+      { c: 'b', shape: 'circle', x: 24, y: 60, r: 9 },
+      { c: 'b', shape: 'square', x: 52, y: 62, r: 9 },
+      { c: 'p', shape: 'heart', x: 16, y: 45, r: 9 },
+    ],
+    action: { type: 'countQuiz', answer: 2, max: 5, match: { c: 'b', shape: 'heart' } }, enter: 'pop' },
 
-  { id: 'p7', text: 'Almost a whole crowd!\nFour taps on the purple star.',
-    dots: [...col(24, 'k', 'triangle', 7.5), ...col(50, 'b', 'circle', 7.5), { c: 'p', shape: 'star', x: 76, y: 50, r: 8 }],
-    action: { type: 'tapCount', color: 'p', count: 4 }, enter: 'grow' },
-
-  { id: 'p8', text: 'What a bunch!\nGive the screen a little shake.',
-    dots: [...col(24, 'k', 'triangle', 7), ...col(50, 'b', 'circle', 7), ...col(76, 'p', 'star', 7.5)],
-    action: { type: 'shake' }, enter: 'grow' },
-
-  { id: 'p9', text: 'They love that!\nShake a bit harder.',
-    dots: scatter(15, 4101, 12, 88, 14, 80, 7),
-    action: { type: 'shake' }, enter: 'jitter' },
-
-  { id: 'p10', text: 'Wheee! Now tip the screen\ngently to the left.',
-    dots: scatter(15, 4102, 12, 88, 12, 84, 7),
+  // ---- Tilt ----
+  { id: 'tilt', text: 'Tip the screen to the LEFT —\nwhee, they slide!',
+    dots: scatter(14, 5201, 12, 88, 14, 74, 8),
     action: { type: 'tiltLeft' }, enter: 'jitter' },
 
-  { id: 'p11', text: 'They slid over!\nNow tip it to the right.',
-    dots: scatter(15, 4103, 5, 32, 8, 90, 7),
-    action: { type: 'tiltRight' }, enter: 'slideL' },
+  // ---- Shake ----
+  { id: 'shake', text: 'Now give it a big SHAKE\nto jumble them up!',
+    dots: scatter(14, 5202, 10, 90, 12, 78, 8),
+    action: { type: 'shake' }, enter: 'slideL' },
 
-  { id: 'p12', text: 'Slippy shapes!\nOne more shake to line them up.',
-    dots: scatter(15, 4104, 68, 95, 8, 90, 7),
-    action: { type: 'shake' }, enter: 'slideR' },
+  // ---- Count & tap: make 4 ----
+  { id: 'count4', text: 'Tap the green square four times\nto build a tower of four!',
+    dots: [{ c: 'g', shape: 'square', x: 50, y: 44, r: 11 }],
+    action: { type: 'tapCount', target: 0, count: 4 }, enter: 'pop' },
 
-  { id: 'p13', text: 'All in a row!\nPress and hold every yellow one.',
-    dots: row(12, 5.5, 21),
-    action: { type: 'tapAll', color: 'y' }, enter: 'settle' },
+  // ---- Find #3 (hard): the green star ----
+  { id: 'find3', text: 'Trickier!\nWhere is the green star?',
+    dots: [
+      { c: 'g', shape: 'star', x: 50, y: 44, r: 8 },     // 0 = target
+      { c: 'r', shape: 'star', x: 22, y: 24, r: 8 },
+      { c: 'b', shape: 'star', x: 78, y: 24, r: 8 },
+      { c: 'y', shape: 'star', x: 50, y: 22, r: 8 },
+      { c: 'g', shape: 'circle', x: 24, y: 58, r: 8 },
+      { c: 'g', shape: 'triangle', x: 76, y: 58, r: 8 },
+      { c: 'g', shape: 'square', x: 15, y: 41, r: 8 },
+      { c: 'p', shape: 'star', x: 85, y: 42, r: 8 },
+      { c: 'o', shape: 'star', x: 50, y: 66, r: 8 },
+    ],
+    action: { type: 'tapDot', target: 0 }, enter: 'pop' },
 
-  { id: 'p14', text: 'Uh-oh, lights out!\nTap the glowing shapes to switch them on.', bg: 'dark',
-    dots: row(12, 5.5, 21).filter((d) => d.c === 'y'),
-    action: { type: 'tapAll' }, enter: 'none' },
+  // ---- Count quiz #3: how many stars? ----
+  { id: 'quizstars', text: 'How many STARS can you count?\nTap the number.',
+    dots: [
+      { c: 'r', shape: 'star', x: 22, y: 26, r: 8 },
+      { c: 'b', shape: 'star', x: 52, y: 24, r: 8 },
+      { c: 'g', shape: 'star', x: 80, y: 30, r: 8 },
+      { c: 'p', shape: 'star', x: 34, y: 60, r: 8 },
+      { c: 'y', shape: 'circle', x: 66, y: 60, r: 8 },
+      { c: 'o', shape: 'square', x: 50, y: 46, r: 8 },
+      { c: 'k', shape: 'heart', x: 16, y: 46, r: 8 },
+    ],
+    action: { type: 'countQuiz', answer: 4, max: 6, match: { shape: 'star' } }, enter: 'pop' },
 
-  { id: 'p15', text: 'Bright again!\nNow squish them all — press every shape.',
-    dots: row(12, 5.5, 21),
-    action: { type: 'tapAll' }, enter: 'pop' },
-
-  { id: 'p16', text: 'Squishy!\nGive them a shake in the dark.', bg: 'dark',
-    dots: row(12, 5.5, 21),
-    action: { type: 'shake' }, enter: 'none' },
-
-  { id: 'p17', text: 'Pretty glow, isn’t it?\nBlow softly to sweep the dark away.', bg: 'dark',
-    dots: arc(12, 6, 33),
+  // ---- Blow (used sparingly) ----
+  { id: 'blow', text: 'Take a big breath…\nand BLOW!',
+    dots: scatter(12, 5203, 14, 86, 14, 74, 8),
     action: { type: 'blow' }, enter: 'jitter' },
 
-  { id: 'p18', text: 'Almost there —\ngive it one more puff!', bg: 'half',
-    dots: arc(12, 6, 33),
-    action: { type: 'blow' }, enter: 'none' },
-
-  { id: 'p19', text: 'Whoops, they floated up!\nHold the screen up straight so they tumble down.',
-    dots: topRow(12, 4105, 6),
-    action: { type: 'upright' }, enter: 'none' },
-
-  { id: 'p20', text: 'Everyone’s happy!\nGive one big clap.',
-    dots: scatter(9, 4106, 16, 84, 15, 78, 8),
+  // ---- Clap (used sparingly) ----
+  { id: 'clap', text: 'Clap once to start the parade!',
+    dots: scatter(10, 5204, 16, 84, 16, 76, 10),
     action: { type: 'clap', count: 1 }, enter: 'drop' },
 
-  { id: 'p21', text: 'They bounced! Clap twice.',
-    dots: scatter(9, 4107, 15, 85, 14, 80, 10),
-    action: { type: 'clap', count: 2 }, enter: 'grow' },
+  // ---- Find #4 (hardest): the orange square ----
+  { id: 'find4', text: 'Last one —\nfind the orange square!',
+    dots: [
+      { c: 'o', shape: 'square', x: 50, y: 44, r: 8 },   // 0 = target
+      { c: 'o', shape: 'circle', x: 24, y: 26, r: 8 },
+      { c: 'o', shape: 'triangle', x: 76, y: 26, r: 8 },
+      { c: 'o', shape: 'star', x: 50, y: 22, r: 8 },
+      { c: 'r', shape: 'square', x: 26, y: 60, r: 8 },
+      { c: 'b', shape: 'square', x: 74, y: 60, r: 8 },
+      { c: 'g', shape: 'square', x: 16, y: 44, r: 8 },
+      { c: 'p', shape: 'heart', x: 84, y: 44, r: 8 },
+      { c: 'y', shape: 'circle', x: 50, y: 66, r: 8 },
+    ],
+    action: { type: 'tapDot', target: 0 }, enter: 'pop' },
 
-  { id: 'p22', text: 'Bigger! Clap three times.', blend: true,
-    dots: scatter(9, 4108, 18, 82, 16, 80, 13),
-    action: { type: 'clap', count: 3 }, enter: 'grow' },
-
-  { id: 'p23', text: 'Keep it going!', blend: true,
-    dots: scatter(9, 4109, 20, 80, 18, 78, 16),
-    action: { type: 'clap', count: 1 }, enter: 'grow' },
-
-  { id: 'p24', text: 'Woohoo — a shape party!', blend: true,
-    dots: scatter(7, 4110, 22, 78, 20, 76, 20),
-    action: { type: 'clap', count: 1 }, enter: 'grow' },
-
-  { id: 'p25', text: 'So much noise!\nTap the little white star to settle down.',
-    dots: [{ c: 'p', shape: 'circle', x: 50, y: 50, r: 40 }, { c: 'o', shape: 'triangle', x: 84, y: 26, r: 16 }, { c: 'g', shape: 'square', x: 16, y: 74, r: 16 }, { c: 'w', shape: 'star', x: 56, y: 46, r: 6 }],
-    action: { type: 'tapWhite' }, enter: 'grow' },
-
-  { id: 'p26', text: 'Phew! That was fun.\nTap to play it all again.',
-    dots: [{ c: 'b', shape: 'circle', x: 50, y: 48, r: 9 }],
+  // ---- Finale ----
+  { id: 'finale', text: 'Hooray, you did it!\nTap the heart to play again.',
+    dots: [{ c: 'k', shape: 'heart', x: 50, y: 46, r: 12 }],
     action: { type: 'tapDot', restart: true }, enter: 'pop' },
 ];
