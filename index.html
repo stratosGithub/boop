@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Boop!</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <div id="dots"></div>
+      <div id="instruction"></div>
+      <div id="cover" hidden></div>
+    </div>
+
+    <button id="skip" class="control" hidden>Skip ▸</button>
+    <button id="enable" class="control" hidden>Tap to enable Motion</button>
+
+    <div id="menu">
+      <button id="menuToggle" class="dotbtn" aria-label="Menu">⋯</button>
+      <div id="menuBar" hidden>
+        <button data-act="prev">‹ Back</button>
+        <button data-act="skip">Skip ▸</button>
+        <button data-act="tune">⚙ Tune</button>
+        <button data-act="restart">↺ Start over</button>
+        <button data-act="next">Next ›</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./pages.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

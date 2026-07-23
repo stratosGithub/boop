@@ -1,0 +1,13 @@
+{
+  "name": "Boop!",
+  "short_name": "Boop!",
+  "description": "A poking game for little hands — tap, rub, tilt, shake, blow and clap to play with friendly shapes.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
